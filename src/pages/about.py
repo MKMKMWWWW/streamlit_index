@@ -6,5 +6,5 @@ def show():
     st.write("""
     ### 项目信息
     这是一个使用Streamlit构建的示例项目。
-
+    是这样
     """) 

@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 from src.utils.db import DatabaseConnection
 from src.config import load_config
 from datetime import datetime
+import re
 
 def process_data(df, start_year, end_year, remove_outliers=False, ma_window=5, std_multiplier=2):
     """
@@ -23,7 +24,7 @@ def process_data(df, start_year, end_year, remove_outliers=False, ma_window=5, s
         outlier_mask = pd.Series(True, index=filtered_df.index)
         
         # 为每个价格列计算移动平均和标准差
-        for column in ['雷亚尔巴西活牛价格', '美元巴西活牛价格']:
+        for column in [col for col in df.columns if col not in ['year', 'month', 'date']]:
             # 计算移动平均
             ma = filtered_df[column].rolling(window=ma_window, center=True).mean()
             # 计算移动标准差
@@ -51,27 +52,77 @@ def process_data(df, start_year, end_year, remove_outliers=False, ma_window=5, s
     return filtered_df
 
 def show():
-    st.title("巴西活牛价格分析")
+    #标题选择
+    tit1,tit2 =st.columns([1,1])
+    with tit1:#国家选择
+        select_country =st.selectbox("请选择国家",["巴西","测试"])
     
+    with tit2:#查看对象
+        select_object=st.selectbox("请选择要查看的对象",["活牛指数","小牛指数","小牛均重"])
+        
+
+    st.title(select_country+select_object+"分析")
+    
+    # 定义一个国家映射字典
+    country_mapping = {
+    "巴西": "BR",
+    "中国": "CN",
+    "美国": "US",
+    "日本": "JP",
+    "德国": "DE"
+    }
+    select_cou = country_mapping.get(select_country)
+
+    # 定义一个对象映射字典
+    country_mapping = {
+
+    "活牛指数":"live_cattle",
+    "小牛指数":"calf_head",
+    "小牛均重":"calf_avg_weight_kg"
+    }
+    select_obj = country_mapping.get(select_object)   
+
+
     # 创建数据库连接
     config = load_config()
     db = DatabaseConnection(config)
     
-    # 从数据库读取数据
+    # 从数据库读取对应国家数据
     sql = """
-    SELECT date, live_cattle_R, live_cattle_USD 
-    FROM dataease_data.BR_cattle_index 
+    SELECT*
+    FROM dataease_data."""+select_cou+"""_cattle_index 
     ORDER BY date DESC
     """
     df = db.query_to_df(sql)
     
     if df is not None:
+        # 找到对象的在数据库里的名称
+
+        # 创建正则表达式模式，匹配包含所有关键词的列（不关心顺序）
+        regex_pattern = r"(?=.*" + re.escape(select_obj.split('_')[0]) + r")(?=.*" + re.escape(select_obj.split('_')[1]) + r")"
+        # 查找列名中包含 "select_obj" 的列
+        #st.write([col for col in df.columns])
+        matching_columns = [col for col in df.columns if re.search(regex_pattern, col)]
+
+        # 输出匹配的列名
+        #st.write("匹配的列名:", matching_columns)
+        newmatch = matching_columns 
+        newmatch.append('date')
+        # 创建包含 'date' 和匹配列的新 DataFrame
+        df = df[newmatch]
+
         # 转换日期列并重命名列
+
+
         df['date'] = pd.to_datetime(df['date'])
         df['year'] = df['date'].dt.year
         df = df.rename(columns={
-            'live_cattle_R': '雷亚尔巴西活牛价格',
-            'live_cattle_USD': '美元巴西活牛价格'
+            col: (
+                f"雷亚尔{select_country}{select_object}" if "R" in col else
+                f"美元{select_country}{select_object}" if "USD" in col else
+                f"{select_country}{select_object}"
+            
+            )for col in df.columns if col not in ['year', 'month', 'date']
         })
         df['month'] = df['date'].dt.month
         
@@ -119,9 +170,10 @@ def show():
                         step=0.5,
                         key='std_multiplier'
                     )
-        
+     
         # 处理数据
         filtered_df = process_data(
+
             df, 
             start_year, 
             end_year, 
@@ -129,6 +181,8 @@ def show():
             ma_window if remove_outliers_option else 5,
             std_multiplier if remove_outliers_option else 2
         )
+
+
         
         # 显示过滤后的数据，调整表格高度
         st.write("### 数据表格")
@@ -145,77 +199,104 @@ def show():
         # 创建时间序列图
         st.write("### 时间序列分析")
         fig = go.Figure()
-        fig.add_trace(go.Scatter(
-            x=filtered_df['date'],
-            y=filtered_df['雷亚尔巴西活牛价格'],
-            name='雷亚尔价格',
-            line=dict(color='blue')
-        ))
-        fig.add_trace(go.Scatter(
-            x=filtered_df['date'],
-            y=filtered_df['美元巴西活牛价格'],
-            name='美元价格',
-            line=dict(color='red'),
-            yaxis='y2'
-        ))
+        if df.shape[1] == 5:
+            fig.add_trace(go.Scatter(
+                x=filtered_df['date'],
+                y=filtered_df['雷亚尔'+select_country+select_object],
+                name='雷亚尔价格',
+                line=dict(color='blue')
+            ))
+            fig.add_trace(go.Scatter(
+                x=filtered_df['date'],
+                y=filtered_df['美元'+select_country+select_object],
+                name='美元价格',
+                line=dict(color='red'),
+                yaxis='y2'
+            ))
+            
+            fig.update_layout(
+                title=select_country+select_object+'走势',
+                yaxis=dict(title='雷亚尔 (R$)', side='left'),
+                yaxis2=dict(title='美元 (USD)', side='right', overlaying='y'),
+                hovermode='x unified'
+            )
         
-        fig.update_layout(
-            title='巴西活牛价格走势',
-            yaxis=dict(title='雷亚尔 (R$)', side='left'),
-            yaxis2=dict(title='美元 (USD)', side='right', overlaying='y'),
-            hovermode='x unified'
-        )
+        #非货币类时间序列图
+        else:
+            fig.add_trace(go.Scatter(
+                x=filtered_df['date'],
+                y=filtered_df[select_country+select_object],
+                name=select_country+select_object,
+                line=dict(color='red'),
+            ))
+            
+            fig.update_layout(
+                title=select_country+select_object+'走势',
+                yaxis=dict(title="公斤(kg)", side='left'),
+                hovermode='x unified')
+
         st.plotly_chart(fig)
         
         # Seasonal Plot
         st.write("### 季节性分析")
         
         # 创建雷亚尔的季节性图表
-        fig_seasonal_r = px.line(
-            filtered_df,
-            x='month',
-            y='雷亚尔巴西活牛价格',
-            color='year',
-            title='巴西活牛雷亚尔价格季节性走势'
-        )
-        fig_seasonal_r.update_xaxes(
-            title='月份',
-            ticktext=['一月', '二月', '三月', '四月', '五月', '六月', 
-                     '七月', '八月', '九月', '十月', '十一月', '十二月'],
-            tickvals=list(range(1, 13))
-        )
-        fig_seasonal_r.update_yaxes(title='价格 (R$)')
-        st.plotly_chart(fig_seasonal_r)
-        
-        # 创建美元的季节性图表
-        fig_seasonal_usd = px.line(
-            filtered_df,
-            x='month',
-            y='美元巴西活牛价格',
-            color='year',
-            title='巴西活牛美元价格季节性走势'
-        )
-        fig_seasonal_usd.update_xaxes(
-            title='月份',
-            ticktext=['一月', '二月', '三月', '四月', '五月', '六月', 
-                     '七月', '八月', '九月', '十月', '十一月', '十二月'],
-            tickvals=list(range(1, 13))
-        )
-        fig_seasonal_usd.update_yaxes(title='价格 (USD)')
-        st.plotly_chart(fig_seasonal_usd)
-        
+        if df.shape[1]==5:
+            fig_seasonal_r = px.line(
+                filtered_df,
+                x='month',
+                y='雷亚尔'+select_country+select_object,
+                color='year',
+                title=select_country+select_object+'雷亚尔季节性走势'
+            )
+            fig_seasonal_r.update_xaxes(
+                title='月份',
+                ticktext=['一月', '二月', '三月', '四月', '五月', '六月', 
+                        '七月', '八月', '九月', '十月', '十一月', '十二月'],
+                tickvals=list(range(1, 13))
+            )
+            fig_seasonal_r.update_yaxes(title='价格 (R$)')
+            st.plotly_chart(fig_seasonal_r)
+            
+            # 创建美元的季节性图表
+            fig_seasonal_usd = px.line(
+                filtered_df,
+                x='month',
+                y='美元'+select_country+select_object,
+                color='year',
+                title=select_country+select_object+'美元季节性走势'
+            )
+            fig_seasonal_usd.update_xaxes(
+                title='月份',
+                ticktext=['一月', '二月', '三月', '四月', '五月', '六月', 
+                        '七月', '八月', '九月', '十月', '十一月', '十二月'],
+                tickvals=list(range(1, 13))
+            )
+            fig_seasonal_usd.update_yaxes(title='价格 (USD)')
+            st.plotly_chart(fig_seasonal_usd)
+        #非货币类季节性图
+        else:
+                fig_seasonal_kg = px.line(
+                filtered_df,
+                x='month',
+                y=select_country+select_object,
+                color='year',
+                title=select_country+select_object+'季节性走势'
+            )
+                fig_seasonal_kg.update_xaxes(
+                title='月份',
+                ticktext=['一月', '二月', '三月', '四月', '五月', '六月', 
+                        '七月', '八月', '九月', '十月', '十一月', '十二月'],
+                tickvals=list(range(1, 13))
+            )
+                fig_seasonal_kg.update_yaxes(title='重量(kg)')
+                st.plotly_chart(fig_seasonal_kg)
+
+
         # 添加基本统计信息
-        st.write("### 统计摘要")
-        col1, col2 = st.columns(2)
-        with col1:
-            st.write("雷亚尔价格统计")
-            st.write(filtered_df['雷亚尔巴西活牛价格'].describe())
-        with col2:
-            st.write("美元价格统计")
-            st.write(filtered_df['美元巴西活牛价格'].describe())
-    
+
     else:
         st.error("无法获取数据，请检查数据库连接")
-    
+
     # 关闭数据库连接
     db.close() 

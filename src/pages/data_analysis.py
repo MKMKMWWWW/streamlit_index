@@ -125,7 +125,7 @@ def show():
             )for col in df.columns if col not in ['year', 'month', 'date']
         })
         df['month'] = df['date'].dt.month
-        
+
         # 获取可用的年份范围
         years = sorted(df['year'].unique())
         
@@ -291,6 +291,65 @@ def show():
             )
                 fig_seasonal_kg.update_yaxes(title='重量(kg)')
                 st.plotly_chart(fig_seasonal_kg)
+
+        #全部二期图（未解决）
+        # 创建雷亚尔的季节性图表二期(未解决)
+        if df.shape[1]==5:
+            filtered_df['month_day'] = filtered_df['date'].dt.strftime('%m-%d')
+
+            # 确保 month_day 按自然顺序排序
+            filtered_df['sort_key'] = (
+                filtered_df['date'].dt.month * 100 + filtered_df['date'].dt.day
+            )
+            filtered_df = filtered_df.sort_values('sort_key')
+
+            fig_seasonal_r = px.line(
+                filtered_df,
+                x='month_day',
+                y='雷亚尔'+select_country+select_object,
+                color='year',
+                title=select_country+select_object+'雷亚尔季节性走势'
+            )
+            fig_seasonal_r.update_xaxes(
+                title='时间',
+                tickangle=45,
+                type='category'
+            )
+            fig_seasonal_r.update_yaxes(title='价格 (R$)')
+            st.plotly_chart(fig_seasonal_r)
+            
+            # 创建美元的季节性图表二期
+            fig_seasonal_usd = px.line(
+                filtered_df,
+                x='month',
+                y='美元'+select_country+select_object,
+                color='year',
+                title=select_country+select_object+'美元季节性走势'
+            )
+            fig_seasonal_usd.update_xaxes(
+                title='月份',
+                ticktext=filtered_df['date'],
+                tickvals=list(range(1, 13))
+            )
+            fig_seasonal_usd.update_yaxes(title='价格 (USD)')
+            st.plotly_chart(fig_seasonal_usd)
+        #非货币类季节性图二期
+        else:
+                fig_seasonal_kg = px.line(
+                filtered_df,
+                x='month',
+                y=select_country+select_object,
+                color='year',
+                title=select_country+select_object+'季节性走势'
+            )
+                fig_seasonal_kg.update_xaxes(
+                title='月份',
+                ticktext=filtered_df['date'],
+                tickvals=list(range(1, 13))
+            )
+                fig_seasonal_kg.update_yaxes(title='重量(kg)')
+                st.plotly_chart(fig_seasonal_kg)
+    
 
 
         # 添加基本统计信息

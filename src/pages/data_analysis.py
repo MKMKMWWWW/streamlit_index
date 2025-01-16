@@ -292,6 +292,119 @@ def show():
                 fig_seasonal_kg.update_yaxes(title='重量(kg)')
                 st.plotly_chart(fig_seasonal_kg)
 
+        # 按天的季节性分析
+        st.write("### 日度季节性分析")
+        
+        # 提取一年中的第几天
+        filtered_df['day_of_year'] = filtered_df['date'].dt.dayofyear
+        
+        # 获取数据中的所有年份并动态创建颜色映射
+        unique_years = sorted(filtered_df['year'].unique())
+        colors = px.colors.qualitative.Set3  # 使用 Set3 色板，也可以选择 Set1, Set2 等
+        year_colors = {year: colors[i % len(colors)] for i, year in enumerate(unique_years)}
+        
+        # 货币类数据的日度季节性图
+        if df.shape[1] == 5:
+            # 雷亚尔日度季节性图
+            fig_seasonal_daily_r = px.scatter(
+                filtered_df,
+                x='day_of_year',
+                y='雷亚尔'+select_country+select_object,
+                color='year',
+                title=select_country+select_object+'雷亚尔日度季节性走势',
+                color_discrete_map=year_colors
+            )
+            fig_seasonal_daily_r.update_xaxes(
+                title='一年中的第几天',
+                range=[1, 365],
+                dtick=30
+            )
+            fig_seasonal_daily_r.update_yaxes(title='价格 (R$)')
+            
+            # 添加网格线使图表更清晰
+            fig_seasonal_daily_r.update_layout(
+                xaxis=dict(
+                    showgrid=True,
+                    gridwidth=1,
+                    gridcolor='LightGray'
+                ),
+                yaxis=dict(
+                    showgrid=True,
+                    gridwidth=1,
+                    gridcolor='LightGray'
+                ),
+                showlegend=True,
+                legend_title="年份"
+            )
+            st.plotly_chart(fig_seasonal_daily_r)
+            
+            # 美元日度季节性图
+            fig_seasonal_daily_usd = px.scatter(
+                filtered_df,
+                x='day_of_year',
+                y='美元'+select_country+select_object,
+                color='year',
+                title=select_country+select_object+'美元日度季节性走势',
+                color_discrete_map=year_colors
+            )
+            fig_seasonal_daily_usd.update_xaxes(
+                title='一年中的第几天',
+                range=[1, 365],
+                dtick=30
+            )
+            fig_seasonal_daily_usd.update_yaxes(title='价格 (USD)')
+            
+            # 添加网格线
+            fig_seasonal_daily_usd.update_layout(
+                xaxis=dict(
+                    showgrid=True,
+                    gridwidth=1,
+                    gridcolor='LightGray'
+                ),
+                yaxis=dict(
+                    showgrid=True,
+                    gridwidth=1,
+                    gridcolor='LightGray'
+                ),
+                showlegend=True,
+                legend_title="年份"
+            )
+            st.plotly_chart(fig_seasonal_daily_usd)
+            
+        # 非货币类数据的日度季节性图
+        else:
+            fig_seasonal_daily_kg = px.scatter(
+                filtered_df,
+                x='day_of_year',
+                y=select_country+select_object,
+                color='year',
+                title=select_country+select_object+'日度季节性走势',
+                color_discrete_map=year_colors
+            )
+            fig_seasonal_daily_kg.update_xaxes(
+                title='一年中的第几天',
+                range=[1, 365],
+                dtick=30
+            )
+            fig_seasonal_daily_kg.update_yaxes(title='重量(kg)')
+            
+            # 添加网格线
+            fig_seasonal_daily_kg.update_layout(
+                xaxis=dict(
+                    showgrid=True,
+                    gridwidth=1,
+                    gridcolor='LightGray'
+                ),
+                yaxis=dict(
+                    showgrid=True,
+                    gridwidth=1,
+                    gridcolor='LightGray'
+                ),
+                showlegend=True,
+                legend_title="年份"
+            )
+            st.plotly_chart(fig_seasonal_daily_kg)
+
 
         # 添加基本统计信息
 

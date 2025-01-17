@@ -58,7 +58,8 @@ def show():
         select_country =st.selectbox("请选择国家",["巴西","测试"])
     
     with tit2:#查看对象
-        select_object=st.selectbox("请选择要查看的对象",["活牛指数","小牛指数","小牛均重"])
+        allobject = ["活牛指数","小牛指数","小牛均重","牛屠宰量","屠宰重量"]
+        select_object=st.selectbox("请选择要查看的对象",allobject)
         
 
     st.title(select_country+select_object+"分析")
@@ -78,7 +79,9 @@ def show():
 
     "活牛指数":"live_cattle",
     "小牛指数":"calf_head",
-    "小牛均重":"calf_avg_weight_kg"
+    "小牛均重":"calf_avg_weight_kg",
+    "牛屠宰量":"beef_head",
+    "屠宰重量":"beef_kg"
     }
     select_obj = country_mapping.get(select_object)   
 
@@ -93,9 +96,59 @@ def show():
     FROM dataease_data."""+select_cou+"""_cattle_index 
     ORDER BY date DESC
     """
-    df = db.query_to_df(sql)
     
-    if df is not None:
+    #合并两个表格（测试中,mysql可以运行但网站报错)
+    '''
+        sql_1 = """
+            SELECT 
+                YEAR(COALESCE(t1.date, t2.date)) AS year,  
+                COALESCE(t1.date, t2.date) AS combined_date,  
+                t1.*,                                     
+                t2.*                                      
+            FROM 
+                dataease_data.BR_cattle_index t1
+            LEFT JOIN 
+                dataease_data.ibge_slaughter t2
+                ON t1.date = t2.date
+
+            UNION
+
+            SELECT 
+                YEAR(COALESCE(t1.date, t2.date)) AS year,  
+                COALESCE(t1.date, t2.date) AS combined_date,  
+                t1.*,                                     
+                t2.*                                      
+            FROM 
+                dataease_data.BR_cattle_index t1
+            RIGHT JOIN 
+                dataease_data.ibge_slaughter t2
+                ON t1.date = t2.date
+
+            ORDER BY 
+                combined_date  
+            """
+        
+        df_1 =db.query_to_df(sql_1)
+        st.write(df_1)
+
+    '''
+    df = db.query_to_df(sql)
+    sql = """
+    SELECT*
+    FROM dataease_data.ibge_slaughter
+    ORDER BY date DESC
+    """
+    df_1= db.query_to_df(sql)
+    
+    
+    #   不通过合并表格而是争对命令来查询对应表格(后两个为一个表)
+    if select_object in allobject[-2:]:
+        df = df_1
+    else:
+        df = df
+
+
+    if df  is not None:
         # 找到对象的在数据库里的名称
 
         # 创建正则表达式模式，匹配包含所有关键词的列（不关心顺序）
@@ -186,12 +239,26 @@ def show():
         
         # 显示过滤后的数据，调整表格高度
         st.write("### 数据表格")
+        
         # 使用container来控制表格大小
+        # 把千克改成吨
+        if  select_object == allobject[-1]:
+            filtered_df[select_country+select_object]=filtered_df[select_country+select_object]/1000
+
+
         with st.container():
             st.dataframe(
                 filtered_df.sort_values('date', ascending=False),
                 height=300  # 设置固定高度
             )
+        
+        #创建一个单位改变专用表
+        if select_object == allobject[-2]:  # 如果是最后2个
+            yaxis_title = "头"
+        elif select_object == allobject[-1]:  # 如果是倒数第1个
+            yaxis_title = "重量（吨）"
+        else:  # 其他情况
+            yaxis_title = "重量（公斤）"
         
         # 添加一个小间距
         st.write("")
@@ -232,7 +299,7 @@ def show():
             
             fig.update_layout(
                 title=select_country+select_object+'走势',
-                yaxis=dict(title="公斤(kg)", side='left'),
+                yaxis=dict(title=yaxis_title, side='left'),
                 hovermode='x unified')
 
         st.plotly_chart(fig)
@@ -289,7 +356,7 @@ def show():
                         '七月', '八月', '九月', '十月', '十一月', '十二月'],
                 tickvals=list(range(1, 13))
             )
-                fig_seasonal_kg.update_yaxes(title='重量(kg)')
+                fig_seasonal_kg.update_yaxes(title=yaxis_title)
                 st.plotly_chart(fig_seasonal_kg)
 
         # 按天的季节性分析
@@ -306,7 +373,7 @@ def show():
         # 货币类数据的日度季节性图
         if df.shape[1] == 5:
             # 雷亚尔日度季节性图
-            fig_seasonal_daily_r = px.scatter(
+            fig_seasonal_daily_r = px.line(
                 filtered_df,
                 x='day_of_year',
                 y='雷亚尔'+select_country+select_object,
@@ -316,7 +383,7 @@ def show():
             )
             fig_seasonal_daily_r.update_xaxes(
                 title='一年中的第几天',
-                range=[1, 365],
+                range=[1, 366],
                 dtick=30
             )
             fig_seasonal_daily_r.update_yaxes(title='价格 (R$)')
@@ -339,7 +406,7 @@ def show():
             st.plotly_chart(fig_seasonal_daily_r)
             
             # 美元日度季节性图
-            fig_seasonal_daily_usd = px.scatter(
+            fig_seasonal_daily_usd = px.line(
                 filtered_df,
                 x='day_of_year',
                 y='美元'+select_country+select_object,
@@ -349,7 +416,7 @@ def show():
             )
             fig_seasonal_daily_usd.update_xaxes(
                 title='一年中的第几天',
-                range=[1, 365],
+                range=[1, 366],
                 dtick=30
             )
             fig_seasonal_daily_usd.update_yaxes(title='价格 (USD)')
@@ -373,7 +440,7 @@ def show():
             
         # 非货币类数据的日度季节性图
         else:
-            fig_seasonal_daily_kg = px.scatter(
+            fig_seasonal_daily_kg = px.line(
                 filtered_df,
                 x='day_of_year',
                 y=select_country+select_object,
@@ -383,10 +450,10 @@ def show():
             )
             fig_seasonal_daily_kg.update_xaxes(
                 title='一年中的第几天',
-                range=[1, 365],
+                range=[1, 366],
                 dtick=30
             )
-            fig_seasonal_daily_kg.update_yaxes(title='重量(kg)')
+            fig_seasonal_daily_kg.update_yaxes(title=yaxis_title)
             
             # 添加网格线
             fig_seasonal_daily_kg.update_layout(
@@ -410,6 +477,7 @@ def show():
 
     else:
         st.error("无法获取数据，请检查数据库连接")
+    
 
     # 关闭数据库连接
     db.close() 

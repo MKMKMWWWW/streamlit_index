@@ -224,9 +224,43 @@ def show():
         
         #创建n个新的表 n = numberoftable
         
-        numberoftable = int(select_year1)-int(select_year)    
-        st.write(select_country+" "+select_year+" ~ "+select_year1+" "+ str(numberoftable+1) + "张表格")
-        year = select_year
+        numberoftable = int(select_year1)-int(select_year)+1
+
+        #出口量的表    
+        st.write("巴西总出口价 "+select_country+" "+select_year+" ~ "+select_year1+" ")
+        year = select_year1
+        new_df = df[(df["Año"] == year)]
+    
+        new_df1 = new_df.groupby(["Mes","国家"])["平均KG价格(美元）"].mean().reset_index()
+        #先显示对应国家的表
+        new_df1 = new_df1[new_df1["国家"]== select_country]
+
+        new_df1 = new_df1.rename(columns={"平均KG价格(美元）": year+select_country})
+        #再删除国家这一列
+        new_df2 = new_df1.drop(columns=["国家"])
+
+        while (numberoftable> 1) and (select_year != select_year1):
+            year = str(int(year)-1)
+            new_df = df[(df["Año"] == year)]
+        
+            new_df1 = new_df.groupby(["Mes","国家"])["平均KG价格(美元）"].mean().reset_index()
+            #先显示对应国家的表
+            new_df1 = new_df1[new_df1["国家"]== select_country]
+
+            new_df1 = new_df1.rename(columns={"平均KG价格(美元）": year+select_country})
+            #再删除国家这一列
+            new_df3 = new_df1.drop(columns=["国家"])
+            new_df2 = pd.merge(new_df2,new_df3,on="Mes", how='right')
+
+            numberoftable-=1
+
+        st.write(new_df2)
+
+
+        #价格表
+        year = select_year1
+        numberoftable = int(select_year1)-int(select_year)+1
+        st.write("巴西总出口量占比 "+select_country+" "+select_year+" ~ "+select_year1+" ")
         new_df = df[(df["Año"] == year)]
         
         new_df1 = new_df.groupby(["Mes"])['t'].sum().reset_index()
@@ -237,20 +271,32 @@ def show():
         new_df2 = new_df2[new_df2["国家"]== select_country]
 
         new_df2 = new_df2.rename(columns={'t': year+select_country})
-        st.write(new_df1)
-        st.write(new_df2)
 
         new_df3 =  pd.merge(new_df1,new_df2,on="Mes")
         #再删除国家这一列
         new_df3 = new_df3.drop(columns=["国家"])
         new_df3[year+"百分比%"]=new_df3[year+select_country]/new_df3[year+"总计"]*100
 
-        if numberoftable>= 0:
+        while (numberoftable> 1) and (select_year != select_year1):
+            year = str(int(year)-1)
+            new_df = df[(df["Año"] == year)]
+        
+            new_df1 = new_df.groupby(["Mes"])['t'].sum().reset_index()
+            
+            new_df1 = new_df1.rename(columns={'t': year+'总计'})
+            new_df2 = new_df.groupby(["Mes","国家"])['t'].sum().reset_index()
+            #先显示对应国家的表
+            new_df2 = new_df2[new_df2["国家"]== select_country]
 
+            new_df2 = new_df2.rename(columns={'t': year+select_country})
 
+            new_df4 =  pd.merge(new_df1,new_df2,on="Mes")
+            #再删除国家这一列
+            new_df4 = new_df4.drop(columns=["国家"])
+            new_df4[year+"百分比%"]=new_df4[year+select_country]/new_df4[year+"总计"]*100
+            new_df3 = pd.merge(new_df3,new_df4,on="Mes", how='right')
             numberoftable-=1
         st.write(new_df3)
-
         
 
 

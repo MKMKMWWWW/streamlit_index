@@ -312,6 +312,10 @@ def show():
             top_countries.insert(0, "中国")
         
         tit1, tit2, tit3 = st.columns([1, 1, 1])
+        
+        #选最近的时间
+        closest_year = max(map(int, years))
+
         with tit1:
             # 添加搜索框
             search_country = st.text_input("搜索国家", "")
@@ -335,14 +339,14 @@ def show():
             select_year = st.selectbox(
                 "请选择开始年",
                 years,
-                index=years.index("2025") if "2025" in years else len(years)-1,  # 默认选择2025年
+                index=years.index(closest_year) if closest_year in years else len(years)-1,  # 默认选择2025年
                 key='start_year'
             )
         with tit3:
             select_year1 = st.selectbox(
                 "请选择结束年",
                 years,
-                index=years.index("2025") if "2025" in years else len(years)-1,  # 默认选择2025年
+                index=years.index(closest_year) if closest_year in years else len(years)-1,  # 默认选择2025年
                 key='end_year'
             )
         

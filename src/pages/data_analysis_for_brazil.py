@@ -246,24 +246,42 @@ def create_barchart(df, start_year, end_year,country):
     """柱状图"""
     fig = go.Figure()
 
-    fig.add_trace(go.Bar(
-        y=df["占比%"],  
-        name=str(df["Año"]),  
-        x=df["Mes"]
-    ))
+    # Loop through unique values in the 'Año' column (i.e., years)
+    for year in df['Año'].unique():
+        # Filter data for the current year
+        year_data = df[df['Año'] == year]
 
-    # Add titles
+        # Add bars for t_中国 (Chinese total)
+
+
+        # Add bars for the difference (t_总计 - t_中国)
+        fig.add_trace(go.Bar(
+            y=year_data["t_总计"],  
+            name=f"Year {year} - t_总计",  # Name for the trace
+            x=year_data["Mes"],
+            offsetgroup=year  # Ensure bars for the same year are grouped together
+        ))
+        fig.add_trace(go.Bar(
+            y=year_data["t_"+country],  
+            name=f"Year {year} - t_"+country,  # Name for the trace
+            x=year_data["Mes"],
+            offsetgroup=year  # Ensure bars for the same year are grouped together
+        ))
+
+
+
+    # Update layout for better display
     fig.update_layout(
-        title="占比图",
+        title="数据图",
         xaxis_title="月",
-        yaxis_title="占比%",
-        barmode="group",  
-        xaxis=dict(tickmode='array', tickvals=df['Mes']), 
+        yaxis_title="t(吨)",
+        barmode="group",  # Stacked bar chart within each year
+        xaxis=dict(tickmode='array', tickvals=df['Mes']),  # Month names as ticks
+        bargap=0.15,  # Controls the gap between groups of bars (for different years)
     )
 
+    # Display the plot
     st.plotly_chart(fig)
-
-
 
 def create_ranking_tables(df, start_year, end_year):
     """创建排名表格"""

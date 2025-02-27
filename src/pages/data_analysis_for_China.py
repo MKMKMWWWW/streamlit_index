@@ -104,8 +104,42 @@ def create_tablemap(df,start_year,end_year,country):
 #柱状图
 def create_barchart(df, start_year, end_year,country):
     """柱状图"""
+    fig = go.Figure()
+
+    # Loop through unique values in the 'Año' column (i.e., years)
+    for year in df['year'].unique():
+        # Filter data for the current year
+        year_data = df[df['year'] == year]
 
 
+        # Add bars for the difference (t_总计 - t_中国)
+        fig.add_trace(go.Bar(
+            y=year_data["t_总计"],  
+            name=f"Year {year} - t_总计",  # Name for the trace
+            x=year_data["month"],
+            offsetgroup=year  # Ensure bars for the same year are grouped together
+        ))
+        fig.add_trace(go.Bar(
+            y=year_data["t_"+country],  
+            name=f"Year {year} - t_"+country,  # Name for the trace
+            x=year_data["month"],
+            offsetgroup=year  # Ensure bars for the same year are grouped together
+        ))
+
+
+
+    # Update layout for better display
+    fig.update_layout(
+        title="数据图中国",
+        xaxis_title="月",
+        yaxis_title="t(吨)",
+        barmode="group",  # Stacked bar chart within each year
+        xaxis=dict(tickmode='array', tickvals=df['month']),  # Month names as ticks
+        bargap=0.15,  # Controls the gap between groups of bars (for different years)
+    )
+
+    # Display the plot
+    st.plotly_chart(fig)
 
 def create_ranking_tables(df, start_year, end_year):
     """创建排名表格"""
@@ -283,6 +317,7 @@ def show():
         #测试代码
         abctest = testmessage(volume_df)
         st.write(abctest['selected_rows'])
+        st.write(create_barchart(volume_df,select_year,select_year1,select_country))
         #结束代码
 
 

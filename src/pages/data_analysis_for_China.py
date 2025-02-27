@@ -4,6 +4,9 @@ from src.config import load_config
 import pandas as pd
 import numpy as np
 from st_aggrid import AgGrid, GridOptionsBuilder #测试
+import plotly.express as px
+import plotly.graph_objects as go
+
 # 在文件开头添加缓存装饰器
 @st.cache_data
 def load_data():
@@ -42,6 +45,7 @@ def process_data(df, select_country, select_year, select_year1):
 
 #测试用代码
 def testmessage(df):
+    
     gb = GridOptionsBuilder.from_dataframe(df)
 
     # Enable features: sorting, filtering, editing, and row selection
@@ -55,8 +59,52 @@ def testmessage(df):
     grid_options = gb.build()
 
     # Display Grid and capture events (row selection)
-    response = AgGrid(df, gridOptions=grid_options,theme="dark", update_mode='MODEL_CHANGED')
+    response = AgGrid(df, gridOptions=grid_options,theme='ag-theme-alpine', update_mode='MODEL_CHANGED')
     return response
+
+
+#线图
+def create_tablemap(df,start_year,end_year,country):
+        """线图"""
+        colors = px.colors.qualitative.Set3  # 使用 Set3 色板，也可以选择 Set1, Set2 等
+        year_colors = {year: colors[i % len(colors)] for i, year in enumerate(sorted(df['year'].unique()))}
+        fig_seasonal_daily_r = px.line(
+            df,
+            x='month',
+            y='平均KG价格(美元)',
+            color='year',
+            title='中国总进口价'+country+start_year+" ~ "+end_year,
+            color_discrete_map=year_colors
+        )
+        fig_seasonal_daily_r.update_xaxes(
+            title='月',
+            ticktext=['一月', '二月', '三月', '四月', '五月', '六月', 
+                        '七月', '八月', '九月', '十月', '十一月', '十二月'],
+            tickvals=list(range(1, 13))
+        )
+        fig_seasonal_daily_r.update_yaxes(title='平均KG价格(美元)')
+        
+        # 添加网格线使图表更清晰
+        fig_seasonal_daily_r.update_layout(
+            xaxis=dict(
+                showgrid=True,
+                gridwidth=1,
+                gridcolor='LightGray'
+            ),
+            yaxis=dict(
+                showgrid=True,
+                gridwidth=1,
+                gridcolor='LightGray'
+            ),
+            showlegend=True,
+            legend_title="年份"
+        )
+        st.plotly_chart(fig_seasonal_daily_r)
+
+#柱状图
+def create_barchart(df, start_year, end_year,country):
+    """柱状图"""
+
 
 
 def create_ranking_tables(df, start_year, end_year):
@@ -80,6 +128,11 @@ def create_ranking_tables(df, start_year, end_year):
         sorted(filtered_df['month'].unique()),
         index=len(filtered_df['month'].unique())-1
     )
+    selected_num = st.selectbox(
+        "选择要查看的数量",
+        list(range(len(filtered_df['国家'].unique())+1)),
+        index=10 if  10 <= len(filtered_df['国家'].unique()) else len(filtered_df['国家'].unique())
+    )
     
     # 创建两列布局
     col1, col2 = st.columns(2)
@@ -102,7 +155,7 @@ def create_ranking_tables(df, start_year, end_year):
             })
             .sort_values('t', ascending=False)
             .reset_index()
-            .head(10))  # 只显示前10名
+            .head(selected_num))  # 只显示前10名
         
         # 添加排名列和计算占比
         volume_ranking.insert(0, '排名', range(1, len(volume_ranking) + 1))
@@ -166,7 +219,7 @@ def show():
         country_volume = df.groupby("国家")['t'].sum().sort_values(ascending=False)
         top_countries = country_volume.index.tolist()
         
-        # 确保中国在列表最前面
+        # 确保巴西在列表最前面
         if "巴西" in top_countries:
             top_countries.remove("巴西")
             top_countries.insert(0, "巴西")
@@ -215,18 +268,24 @@ def show():
         
         # 显示结果
         st.write(f"中国总进口价 {select_country} {select_year} ~ {select_year1}")
+        
         #测试代码
-        abctest = testmessage(price_df)
-        st.write(abctest['selected_rows'])
+        chinainput = testmessage(price_df)
+        st.write(chinainput['selected_rows'])
+        st.write(create_tablemap(price_df,select_year,select_year1,search_country))
         #结束代码        
+        
         st.write(f"中国总进口量占比 {select_country} {select_year} ~ {select_year1}")
         # 计算并显示占比
         volume_df = pd.merge(volume_total, volume_country, on=["year", "month"], suffixes=('_总计', f'_{select_country}'))
         volume_df['占比%'] = (volume_df[f't_{select_country}'] / volume_df['t_总计'] * 100).round(2)
+        
         #测试代码
         abctest = testmessage(volume_df)
         st.write(abctest['selected_rows'])
         #结束代码
+
+
         # 添加排名分析
         st.markdown("---")  # 添加分隔线
         create_ranking_tables(df, select_year, select_year1)

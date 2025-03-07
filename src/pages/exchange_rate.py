@@ -27,7 +27,7 @@ def parse_exchange_rates(html):
         soup = BeautifulSoup(html, "html.parser")
         p_element = soup.find('p', string=lambda text: text and "现汇卖出价" in text)
         next_p = p_element.find_next_sibling('p') if p_element else None
-        st.write(next_p)
+
         if not p_element:
             return "Error: Could not find the <b> element."
         
@@ -47,7 +47,6 @@ def fetch_dxy(url):
         chrome_options.add_argument("--headless") 
         chrome_options.add_argument("--disable-gpu")
         chrome_options.add_argument("--no-sandbox")
-        
 
         driver = webdriver.Chrome(service=Service(), options=chrome_options)
     
@@ -58,13 +57,16 @@ def fetch_dxy(url):
 
         dxy_element = driver.find_element(By.CSS_SELECTOR, "span.last-JWoJqCpY.js-symbol-last")
         dxy_value = dxy_element.text
-
-        driver.quit()
-        
+       
+        change_value = driver.find_element(By.CSS_SELECTOR, "div.change-JWoJqCpY span").text
+        percentage_change = driver.find_element(By.CSS_SELECTOR, "div.change-JWoJqCpY span.js-symbol-change-pt").text
     except Exception as e:
-        dxy_value = f"Error fetching data: {e}"
+        print("Error:", e)
+        change_value, percentage_change = "N/A", "N/A"
 
-    return dxy_value
+    driver.quit()
+
+    return dxy_value,change_value,percentage_change
 
 
 def show():
@@ -72,10 +74,12 @@ def show():
     url1 = "https://www.tradingview.com/symbols/TVC-DXY/"#tradingview
     url2 = 'https://www.tradingview.com/symbols/USDBRL/'#tradingview
     url3 = "https://chl.cn/huilv/?usd"#我查
-    dxy = fetch_dxy(url1)
-    usd_br = fetch_dxy(url2)
+    dxy,dxy1,dxy2 = fetch_dxy(url1)
+    usd_br,usd_br_1,usd_br_2 = fetch_dxy(url2)
     st.metric(label="美元指数", value=dxy)
+    st.write(dxy1,dxy2)
     st.metric(label="美元对巴西雷亚尔", value=usd_br)
+    st.write(usd_br_1,usd_br_2)
     exchange_rates = parse_exchange_rates(url3)
     st.metric(label="美元对人名币（现汇卖出价）", value=exchange_rates)
 
